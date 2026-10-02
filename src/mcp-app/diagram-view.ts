@@ -11,6 +11,7 @@ import {
   MERMAID_SVG_SANITIZE_OPTIONS,
 } from "~/features/diagram/mermaid-config";
 import {
+  decodeLeftoverLabelEntities,
   enforceSafeMermaidLinks,
   sanitizeMermaidSourceForRender,
 } from "~/features/diagram/mermaid-security";
@@ -201,6 +202,7 @@ async function renderDiagram(current: DiagramViewPayload) {
     if (render !== renderCount) return;
     canvas.innerHTML = DOMPurify.sanitize(svg, MERMAID_SVG_SANITIZE_OPTIONS);
     enforceSafeMermaidLinks(canvas);
+    decodeLeftoverLabelEntities(canvas);
   } catch {
     if (render !== renderCount) return;
     showMessage(

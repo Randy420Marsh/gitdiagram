@@ -3,6 +3,7 @@ import Link from "next/link";
 import MainCard from "~/components/main-card";
 import Hero from "~/components/hero";
 import { JsonLd } from "~/components/json-ld";
+import { LocalFolders } from "~/components/local-folders";
 import { NewBadge } from "~/components/new-badge";
 import { GITHUB_REPO_URL, SITE_URL } from "~/lib/site";
 import { cn } from "~/lib/utils";
@@ -121,6 +122,7 @@ export default function HomePage() {
       <div className="flex justify-center sm:mb-16 lg:mb-0">
         <MainCard />
       </div>
+      <LocalFolders />
     </main>
   );
 }

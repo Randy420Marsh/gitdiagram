@@ -16,6 +16,7 @@ import {
   MERMAID_SVG_SANITIZE_OPTIONS,
 } from "~/features/diagram/mermaid-config";
 import {
+  decodeLeftoverLabelEntities,
   enforceSafeMermaidLinks,
   sanitizeMermaidSourceForRender,
 } from "~/features/diagram/mermaid-security";
@@ -126,6 +127,7 @@ const MermaidChart = ({
           MERMAID_SVG_SANITIZE_OPTIONS,
         );
         enforceSafeMermaidLinks(mermaidElement);
+        decodeLeftoverLabelEntities(mermaidElement);
         bindFunctions?.(mermaidElement);
         setRenderVersion((currentVersion) => currentVersion + 1);
       } catch (error) {

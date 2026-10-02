@@ -1,5 +1,5 @@
 import { getProvider } from "~/server/generate/model-config";
-import { readRequiredEnv } from "~/server/storage/config";
+import { isLocalMode, readRequiredEnv } from "~/server/storage/config";
 import { checkR2Bucket } from "~/server/storage/r2";
 import { checkUpstashConnection } from "~/server/storage/upstash";
 
@@ -16,6 +16,9 @@ export interface ReadinessResult {
 
 function hasProviderKey(): boolean {
   const provider = getProvider();
+  if (provider === "local") {
+    return true; // a local llama-server needs no key
+  }
   const keyName =
     provider === "openrouter" ? "OPENROUTER_API_KEY" : "OPENAI_API_KEY";
   return Boolean(process.env[keyName]?.trim());
@@ -28,11 +31,14 @@ export async function checkReadiness(): Promise<ReadinessResult> {
   try {
     publicBucket = readRequiredEnv("R2_PUBLIC_BUCKET");
     privateBucket = readRequiredEnv("R2_PRIVATE_BUCKET");
-    readRequiredEnv("R2_ACCOUNT_ID");
-    readRequiredEnv("R2_ACCESS_KEY_ID");
-    readRequiredEnv("R2_SECRET_ACCESS_KEY");
-    readRequiredEnv("UPSTASH_REDIS_REST_URL");
-    readRequiredEnv("UPSTASH_REDIS_REST_TOKEN");
+    if (!isLocalMode()) {
+      // local mode stores on disk and keeps Redis in process
+      readRequiredEnv("R2_ACCOUNT_ID");
+      readRequiredEnv("R2_ACCESS_KEY_ID");
+      readRequiredEnv("R2_SECRET_ACCESS_KEY");
+      readRequiredEnv("UPSTASH_REDIS_REST_URL");
+      readRequiredEnv("UPSTASH_REDIS_REST_TOKEN");
+    }
     readRequiredEnv("CACHE_KEY_SECRET");
   } catch {
     configuration = false;

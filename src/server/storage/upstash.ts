@@ -1,7 +1,13 @@
 import {
   assertLiveStorageAllowedForTests,
+  isLocalMode,
   readRequiredEnv,
 } from "~/server/storage/config";
+import {
+  localRedisCommand,
+  localRedisEval,
+  localRedisPipeline,
+} from "~/server/storage/local-redis";
 
 const UPSTASH_REQUEST_TIMEOUT_MS = 5_000;
 
@@ -50,6 +56,9 @@ async function execute<T>(path: string, body: unknown): Promise<T> {
 }
 
 export async function upstashCommand<T>(command: unknown[]): Promise<T> {
+  if (isLocalMode()) {
+    return localRedisCommand<T>(command);
+  }
   return execute<T>("", command);
 }
 
@@ -60,6 +69,9 @@ export async function upstashCommand<T>(command: unknown[]): Promise<T> {
 export async function upstashPipeline(
   commands: unknown[][],
 ): Promise<Array<{ result?: unknown; error?: string }>> {
+  if (isLocalMode()) {
+    return localRedisPipeline(commands);
+  }
   assertLiveStorageAllowedForTests("Upstash");
   const response = await fetch(`${getBaseUrl()}/pipeline`, {
     method: "POST",
@@ -79,6 +91,9 @@ export async function upstashEval<T>(params: {
   keys?: string[];
   args?: Array<string | number>;
 }): Promise<T> {
+  if (isLocalMode()) {
+    return localRedisEval<T>(params);
+  }
   const keys = params.keys ?? [];
   const args = params.args ?? [];
   return execute<T>("", ["EVAL", params.script, keys.length, ...keys, ...args]);

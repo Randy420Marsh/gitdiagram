@@ -1,9 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  decodeLeftoverLabelEntities,
   enforceSafeMermaidLinks,
   sanitizeMermaidSourceForRender,
 } from "~/features/diagram/mermaid-security";
+
+describe("decodeLeftoverLabelEntities", () => {
+  it("decodes entity codes Mermaid left in label text, as text only", () => {
+    const root = document.createElement("div");
+    root.innerHTML =
+      '<svg><g class="cluster-label"><text><tspan>Model Inference &amp;#40;LLAMA&amp;#41;</tspan></text></g>' +
+      "<text>a &amp;#60;b&amp;#62; &amp;#x7C; c &amp;#1; d</text></svg>";
+
+    decodeLeftoverLabelEntities(root);
+
+    expect(root.querySelector("tspan")?.textContent).toBe(
+      "Model Inference (LLAMA)",
+    );
+    // "<" becomes a character of the text, not markup; control codes stay
+    expect(root.querySelectorAll("text")[1]?.textContent).toBe(
+      "a <b> | c &#1; d",
+    );
+    expect(root.querySelector("b")).toBeNull();
+  });
+});
 
 describe("sanitizeMermaidSourceForRender", () => {
   it("removes config directives and unsafe callbacks while preserving generated GitHub links", () => {

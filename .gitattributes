@@ -1,0 +1,4 @@
+# Launchers must keep their line endings on every checkout (core.autocrlf
+# would otherwise give run.sh a CRLF shebang on Windows, or run.bat bare LFs).
+*.sh  text eol=lf
+*.bat text eol=crlf

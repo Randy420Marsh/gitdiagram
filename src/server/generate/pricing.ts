@@ -2,6 +2,7 @@ import type {
   GenerationCostSummary,
   GenerationTokenUsage,
 } from "~/features/diagram/cost";
+import { getProvider } from "~/server/generate/model-config";
 import {
   EXPLANATION_ESTIMATED_OUTPUT_TOKENS,
   GRAPH_ESTIMATED_OUTPUT_TOKENS,
@@ -57,6 +58,9 @@ const MODEL_PRICING: Record<string, ModelPricing> = {
   "gpt-5-mini": { inputPerMillionUsd: 0.25, outputPerMillionUsd: 2.0 },
   "gpt-5-nano": { inputPerMillionUsd: 0.05, outputPerMillionUsd: 0.4 },
   "o4-mini": { inputPerMillionUsd: 1.1, outputPerMillionUsd: 4.4 },
+
+  // AI_PROVIDER=local: whatever model llama-server holds runs on this machine.
+  local: { inputPerMillionUsd: 0, outputPerMillionUsd: 0 },
 };
 // GPT-5.6 and later: cache writes cost 1.25× input and reads 0.1× (0.05× on
 // GPT-6.1 Sol), and the priority tier doubles both.
@@ -87,6 +91,8 @@ function stripProviderPrefix(model: string): string {
 }
 
 export function resolvePricingModel(model: string): string | null {
+  // llama-server ignores the model name, so the provider decides the price
+  if (getProvider() === "local") return "local";
   const normalized = normalizeModelId(model);
   if (MODEL_PRICING[normalized]) return normalized;
 

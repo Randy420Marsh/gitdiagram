@@ -1,4 +1,5 @@
 import type { DiagramGraph } from "~/features/diagram/graph";
+import { isLocalRepositoryOwner } from "~/features/diagram/local-repository";
 
 export interface ConnectionRow {
   key: string;
@@ -31,7 +32,7 @@ export function connectionRows(graph: DiagramGraph): ConnectionRow[] {
  */
 export function evidenceUrl(repository: string, path: string): string | null {
   const [owner, repo] = repository.split("/");
-  if (!owner || !repo) return null;
+  if (!owner || !repo || isLocalRepositoryOwner(owner)) return null;
   const encoded = path
     .split("/")
     .filter((segment) => segment && segment !== "." && segment !== "..")

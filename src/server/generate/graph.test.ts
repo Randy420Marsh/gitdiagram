@@ -241,10 +241,10 @@ describe("compileDiagramGraph", () => {
     expect(diagram).not.toContain("<script>");
     expect(diagram).not.toContain("<img");
     expect(diagram).toContain(
-      "&lt;script&gt;alert&#40;&quot;x&quot;&#41;&lt;/script&gt;",
+      "&lt;script&gt;alert#40;&quot;x&quot;#41;&lt;/script&gt;",
     );
     expect(diagram).toContain(
-      "&lt;img src=x onerror=&quot;alert&#40;1&#41;&quot;&gt; &amp; runtime",
+      "&lt;img src=x onerror=&quot;alert#40;1#41;&quot;&gt; &amp; runtime",
     );
     expect(diagram).toContain(
       'click node_api "https://github.com/acme/demo/blob/feature/security/src/a%20%22quoted%22%20file.ts"',
@@ -274,7 +274,7 @@ describe("compileDiagramGraph", () => {
     });
 
     expect(diagram).toContain(
-      'node_api["API click node_api call alert&#40;&#41;<br/>HTTP worker"]',
+      'node_api["API click node_api call alert#40;#41;<br/>HTTP worker"]',
     );
     expect(
       diagram.split("\n").filter((line) => line.startsWith("click ")),

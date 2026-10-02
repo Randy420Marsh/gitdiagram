@@ -3,6 +3,7 @@ import {
   normalizeDiagramText,
   type DiagramGraph,
 } from "~/features/diagram/graph";
+import { isLocalRepositoryOwner } from "~/features/diagram/local-repository";
 import type { DiagramStateResponse } from "~/features/diagram/types";
 
 // A stored diagram as text: the explanation, its components grouped the way
@@ -120,7 +121,9 @@ export function diagramReadout(
       path,
       href:
         links.get(node.id) ??
-        (path ? fallbackSourceLink(owner, repo, path) : null),
+        (path && !isLocalRepositoryOwner(owner)
+          ? fallbackSourceLink(owner, repo, path)
+          : null),
     };
   };
 

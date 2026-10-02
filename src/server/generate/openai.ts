@@ -8,6 +8,11 @@ import {
   UpstreamProviderError,
 } from "~/server/generate/errors";
 import {
+  getLocalApiKey,
+  getLocalBaseUrl,
+  resolveLocalReasoningEffort,
+} from "~/server/generate/local-llm";
+import {
   getProviderLabel,
   getGenerationServiceTier,
   supportsTextVerbosity,
@@ -22,6 +27,9 @@ const AI_REQUEST_TIMEOUT_MS = 150_000;
 const AI_MAX_RETRIES = 0;
 
 function getEnvApiKey(provider: AIProvider): string | undefined {
+  if (provider === "local") {
+    return getLocalApiKey();
+  }
   if (provider === "openrouter") {
     return process.env.OPENROUTER_API_KEY?.trim();
   }
@@ -46,6 +54,15 @@ function getOpenRouterHeaders(): Record<string, string> {
 }
 
 function createClient(provider: AIProvider, apiKey: string): OpenAI {
+  if (provider === "local") {
+    return new OpenAI({
+      apiKey,
+      baseURL: getLocalBaseUrl(),
+      maxRetries: AI_MAX_RETRIES,
+      // a local model reasons at its own pace; the route's deadline still applies
+      timeout: Number(process.env.LOCAL_LLM_TIMEOUT_MS) || 600_000,
+    });
+  }
   if (provider === "openrouter") {
     return new OpenAI({
       apiKey,
@@ -93,6 +110,17 @@ function resolveApiKey(provider: AIProvider, overrideApiKey?: string): string {
     );
   }
   return apiKey;
+}
+
+/** The `reasoning` request field: a local model gets its own nearest level. */
+async function buildReasoning(
+  provider: AIProvider,
+  effort: ReasoningEffort | undefined,
+): Promise<{ reasoning?: { effort: ReasoningEffort } }> {
+  const level =
+    provider === "local" ? await resolveLocalReasoningEffort(effort) : effort;
+  // the local level may be one OpenAI's type does not list (e.g. "xhigh")
+  return level ? { reasoning: { effort: level as ReasoningEffort } } : {};
 }
 
 function buildMessages(systemPrompt: string, userPrompt: string) {
@@ -218,6 +246,7 @@ export async function streamCompletion({
   clientRequestId,
 }: StreamCompletionParams): Promise<StreamCompletionResult> {
   const client = createClient(provider, resolveApiKey(provider, apiKey));
+  const reasoning = await buildReasoning(provider, reasoningEffort);
   const stream = await client.responses
     .create(
       {
@@ -233,7 +262,7 @@ export async function streamCompletion({
           : {}),
         stream: true,
         input: buildMessages(systemPrompt, userPrompt),
-        ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
+        ...reasoning,
         ...(outputSchema ||
         (textVerbosity && supportsTextVerbosity(provider, model))
           ? {
@@ -366,6 +395,7 @@ export async function countInputTokens({
   clientRequestId,
 }: CountInputTokensParams): Promise<number> {
   const client = createClient(provider, resolveApiKey(provider, apiKey));
+  const reasoning = await buildReasoning(provider, reasoningEffort);
 
   const response = await client.responses.inputTokens
     .count(
@@ -375,7 +405,7 @@ export async function countInputTokens({
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
+        ...reasoning,
       },
       buildRequestOptions({ provider, signal, clientRequestId }),
     )
@@ -402,6 +432,7 @@ export async function generateStructuredOutput<T>({
   usage: GenerationTokenUsage | null;
 }> {
   const client = createClient(provider, resolveApiKey(provider, apiKey));
+  const reasoning = await buildReasoning(provider, reasoningEffort);
 
   try {
     const response = await client.responses.parse(
@@ -423,7 +454,7 @@ export async function generateStructuredOutput<T>({
             ? { verbosity: textVerbosity }
             : {}),
         },
-        ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
+        ...reasoning,
       },
       buildRequestOptions({ provider, signal, clientRequestId }),
     );

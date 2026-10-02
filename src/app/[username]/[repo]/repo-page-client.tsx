@@ -17,6 +17,7 @@ import { TooltipProvider } from "~/components/ui/tooltip";
 import { isExampleRepo } from "~/lib/exampleRepos";
 import { VIDEOS_ENABLED } from "~/lib/video-flag";
 import { githubAccessTitle } from "~/features/diagram/github-access";
+import { isLocalRepositoryOwner } from "~/features/diagram/local-repository";
 import controls from "~/components/generation/workspace.module.css";
 
 const ExplainerVideo = dynamic(
@@ -168,15 +169,17 @@ export default function RepoPageClient({
                   Use Your AI Key
                 </button>
               )}
-              <a
-                href={`https://github.com/${repository}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={controls.actionButton}
-              >
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                Open repository on GitHub
-              </a>
+              {!isLocalRepositoryOwner(username) && (
+                <a
+                  href={`https://github.com/${repository}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={controls.actionButton}
+                >
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  Open repository on GitHub
+                </a>
+              )}
             </>
           }
         />

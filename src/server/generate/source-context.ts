@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { excerptSource } from "./source-excerpt";
 import { getGitHubApiHeaders } from "../github-auth";
 import type { GithubData, SourceBlob } from "./github";
+import { readLocalSource } from "./local-repo";
 import {
   MAX_REFERENCE_FILES,
   MAX_SOURCE_CHARACTERS,
@@ -277,15 +278,23 @@ export async function fetchSourceContext(params: {
         while (next < paths.length && !signal.aborted) {
           const path = paths[next++]!;
           const blob = params.githubData.sourceBlobs?.get(path);
+          const localRoot = params.githubData.localRoot;
           if (
             !blob ||
             blob.size > MAX_SOURCE_FILE_BYTES ||
-            !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(blob.sha)
+            (!localRoot && !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(blob.sha))
           )
             continue;
           try {
             let source: SourceExcerpt | "changed" | null;
-            if (params.githubData.isPrivate) {
+            if (localRoot) {
+              const text = await readLocalSource(
+                localRoot,
+                path,
+                MAX_SOURCE_FILE_BYTES,
+              );
+              source = text === null ? null : { path, text, truncated: false };
+            } else if (params.githubData.isPrivate) {
               source = await readBlob({
                 ...params,
                 path,

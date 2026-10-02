@@ -49,10 +49,8 @@ import {
   extractTaggedSection,
   toTaggedMessage,
 } from "~/server/generate/format";
-import {
-  getGithubData,
-  REPOSITORY_TOO_LARGE_ERROR,
-} from "~/server/generate/github";
+import { REPOSITORY_TOO_LARGE_ERROR } from "~/server/generate/github";
+import { getRepositoryData } from "~/server/generate/local-repo";
 import {
   buildFileTreeLookup,
   compileDiagramGraph,
@@ -377,7 +375,7 @@ export async function POST(request: Request) {
           }
 
           const githubStartedAt = performance.now();
-          const githubData = await getGithubData(
+          const githubData = await getRepositoryData(
             username,
             repo,
             githubPat,
@@ -817,6 +815,7 @@ export async function POST(request: Request) {
             repo,
             branch: githubData.defaultBranch,
             pathTypes: githubData.pathTypes,
+            links: !githubData.localRoot,
           });
           recordTiming("diagram_compile", diagramCompileStartedAt);
           audit = withCompiledDiagram(audit, diagram);

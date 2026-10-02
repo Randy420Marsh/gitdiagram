@@ -74,3 +74,6 @@ venv
 
 # local explainer video artifacts (development)
 .video-cache/
+
+# local mode's diagrams and secret (GITDIAGRAM_LOCAL=1, LOCAL.md)
+/.local-data/

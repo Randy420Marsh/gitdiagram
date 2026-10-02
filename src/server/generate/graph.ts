@@ -242,11 +242,16 @@ export function isRepairableWithoutRetry(
 }
 
 function escapeMermaidText(value: string): string {
+  // Characters Mermaid's grammar reacts to are written as Mermaid's own entity
+  // codes ('#40;'), which it decodes only after parsing. HTML-style '&#40;'
+  // must not be used for them: Mermaid decodes the '#40;' inside it and leaves
+  // the '&' behind, so "main()" rendered as "main&(&)".
   const escaped = normalizeDiagramText(value)
     .replace(/&/g, "&amp;")
     // Mermaid decodes its own '#nn;' entity codes inside label text, so an
     // unescaped '#' would reintroduce characters the rules below just removed.
-    .replace(/#/g, "&#35;")
+    // Replaced first, before the codes below add their own '#'.
+    .replace(/#/g, "#35;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
@@ -254,15 +259,15 @@ function escapeMermaidText(value: string): string {
     // Mermaid markdown string, which fails to lex and takes the entire diagram
     // down. Nothing downstream parses Mermaid on the server, so an unescaped
     // backtick would be persisted and break the artifact for every later reader.
-    .replace(/`/g, "&#96;")
-    .replace(/\\/g, "&#92;")
-    .replace(/\|/g, "&#124;")
-    .replace(/\[/g, "&#91;")
-    .replace(/\]/g, "&#93;")
-    .replace(/\{/g, "&#123;")
-    .replace(/\}/g, "&#125;")
-    .replace(/\(/g, "&#40;")
-    .replace(/\)/g, "&#41;")
+    .replace(/`/g, "#96;")
+    .replace(/\\/g, "#92;")
+    .replace(/\|/g, "#124;")
+    .replace(/\[/g, "#91;")
+    .replace(/\]/g, "#93;")
+    .replace(/\{/g, "#123;")
+    .replace(/\}/g, "#125;")
+    .replace(/\(/g, "#40;")
+    .replace(/\)/g, "#41;")
     .trim();
 
   return escaped || "Unnamed";
@@ -453,8 +458,10 @@ export function compileDiagramGraph(params: {
   repo: string;
   branch: string;
   pathTypes?: ReadonlyMap<string, RepositoryPathType>;
+  /** false for a repository with no GitHub page (a local folder) */
+  links?: boolean;
 }): string {
-  const { graph, username, repo, branch, pathTypes } = params;
+  const { graph, username, repo, branch, pathTypes, links = true } = params;
   const lines: string[] = ["flowchart TD"];
   const groupedNodeIds = new Set<string>();
   const classAssignments = new Map<string, string[]>();
@@ -502,7 +509,7 @@ export function compileDiagramGraph(params: {
     }
   }
 
-  const nodesWithPaths = graph.nodes.filter((node) => node.path);
+  const nodesWithPaths = links ? graph.nodes.filter((node) => node.path) : [];
   if (nodesWithPaths.length) {
     lines.push("");
     for (const node of nodesWithPaths) {

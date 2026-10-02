@@ -4,6 +4,10 @@ Visualize any codebase: turn any public or private GitHub repository into an int
 
 **[Try GitDiagram →](https://gitdiagram.com/)** · Or replace `hub` with `diagram` in any GitHub repository URL.
 
+> **This fork adds a local mode**: diagrams from your own llama.cpp `llama-server`, stored on disk,
+> including folders on your machine, with no hosted services. Start it with `run.bat` (Windows)
+> or `./run.sh`; see [LOCAL.md](LOCAL.md).
+
 [![GitDiagram front page](./docs/readme_img.png)](https://gitdiagram.com/)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

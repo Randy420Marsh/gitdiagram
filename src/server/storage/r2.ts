@@ -2,7 +2,19 @@ import type * as S3Sdk from "@aws-sdk/client-s3";
 import { promisify } from "node:util";
 import { gunzip, gzip } from "node:zlib";
 
-import { assertLiveStorageAllowedForTests, readRequiredEnv } from "./config";
+import {
+  assertLiveStorageAllowedForTests,
+  isLocalMode,
+  readRequiredEnv,
+} from "./config";
+import {
+  deleteLocalObject,
+  ensureLocalBucket,
+  getLocalObjectInfo,
+  listLocalObjects,
+  readObject,
+  writeObject,
+} from "./local-object-store";
 
 let client: S3Sdk.S3Client | null = null;
 let s3ModulePromise: Promise<typeof S3Sdk> | null = null;
@@ -82,6 +94,12 @@ export async function getJsonObject<T>(
   bucket: string,
   key: string,
 ): Promise<T | null> {
+  if (isLocalMode()) {
+    const object = await readObject(bucket, key);
+    return object?.bytes.length
+      ? (JSON.parse(object.bytes.toString("utf8")) as T)
+      : null;
+  }
   try {
     const { client: storageClient, s3 } = await getClient();
     const response = await storageClient.send(
@@ -111,6 +129,9 @@ export async function putJsonObject(
   key: string,
   payload: unknown,
 ): Promise<void> {
+  if (isLocalMode()) {
+    return writeObject(bucket, key, Buffer.from(JSON.stringify(payload)));
+  }
   const { client: storageClient, s3 } = await getClient();
   await storageClient.send(
     new s3.PutObjectCommand({
@@ -127,6 +148,9 @@ export async function getBinaryObject(
   bucket: string,
   key: string,
 ): Promise<Buffer | null> {
+  if (isLocalMode()) {
+    return (await readObject(bucket, key))?.bytes ?? null;
+  }
   try {
     const { client: storageClient, s3 } = await getClient();
     const response = await storageClient.send(
@@ -149,6 +173,9 @@ export async function putBinaryObject(
   body: Buffer,
   contentType: string,
 ): Promise<void> {
+  if (isLocalMode()) {
+    return writeObject(bucket, key, body);
+  }
   const { client: storageClient, s3 } = await getClient();
   await storageClient.send(
     new s3.PutObjectCommand({
@@ -166,6 +193,9 @@ export async function listObjects(
   bucket: string,
   prefix: string,
 ): Promise<Array<{ key: string; lastModified: Date | null }>> {
+  if (isLocalMode()) {
+    return listLocalObjects(bucket, prefix);
+  }
   const { client: storageClient, s3 } = await getClient();
   const objects: Array<{ key: string; lastModified: Date | null }> = [];
   let token: string | undefined;
@@ -194,6 +224,9 @@ export async function getObjectInfo(
   bucket: string,
   key: string,
 ): Promise<{ lastModified: Date | null } | null> {
+  if (isLocalMode()) {
+    return getLocalObjectInfo(bucket, key);
+  }
   try {
     const { client: storageClient, s3 } = await getClient();
     const response = await storageClient.send(
@@ -219,6 +252,9 @@ export async function presignObjectDownload(
   key: string,
   options: { filename: string; expiresInSeconds: number },
 ): Promise<string> {
+  if (isLocalMode()) {
+    throw new Error("Signed downloads are not available in local mode.");
+  }
   const { client: storageClient, s3 } = await getClient();
   const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
   return getSignedUrl(
@@ -236,6 +272,9 @@ export async function getGzipJsonObject<T>(
   bucket: string,
   key: string,
 ): Promise<T | null> {
+  if (isLocalMode()) {
+    return (await getGzipJsonObjectWithEtag<T>(bucket, key))?.value ?? null;
+  }
   try {
     const { client: storageClient, s3 } = await getClient();
     const response = await storageClient.send(
@@ -265,6 +304,17 @@ export async function getGzipJsonObjectWithEtag<T>(
   bucket: string,
   key: string,
 ): Promise<ObjectReadResult<T> | null> {
+  if (isLocalMode()) {
+    const object = await readObject(bucket, key);
+    if (!object?.bytes.length) {
+      return null;
+    }
+    const decompressed = await gunzipAsync(object.bytes);
+    return {
+      value: JSON.parse(decompressed.toString("utf8")) as T,
+      etag: object.etag,
+    };
+  }
   try {
     const { client: storageClient, s3 } = await getClient();
     const response = await storageClient.send(
@@ -302,6 +352,14 @@ export async function putGzipJsonObject(
   payload: unknown,
   condition?: ObjectWriteCondition,
 ): Promise<void> {
+  if (isLocalMode()) {
+    return writeObject(
+      bucket,
+      key,
+      await gzipAsync(JSON.stringify(payload)),
+      condition,
+    );
+  }
   const [body, { client: storageClient, s3 }] = await Promise.all([
     gzipAsync(JSON.stringify(payload)),
     getClient(),
@@ -324,6 +382,9 @@ export async function putGzipJsonObject(
 }
 
 export async function deleteObject(bucket: string, key: string): Promise<void> {
+  if (isLocalMode()) {
+    return deleteLocalObject(bucket, key);
+  }
   const { client: storageClient, s3 } = await getClient();
   await storageClient.send(
     new s3.DeleteObjectCommand({
@@ -335,6 +396,9 @@ export async function deleteObject(bucket: string, key: string): Promise<void> {
 }
 
 export async function checkR2Bucket(bucket: string): Promise<void> {
+  if (isLocalMode()) {
+    return ensureLocalBucket(bucket);
+  }
   // Exercise the same authenticated GetObject path used by the application.
   // A missing sentinel is a successful readiness result; permission failures
   // and transport errors still propagate.

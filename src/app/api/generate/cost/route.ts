@@ -14,10 +14,8 @@ import {
   isComplimentaryGateEnabled,
   modelMatchesComplimentaryFamily,
 } from "~/server/generate/complimentary-gate";
-import {
-  getGithubData,
-  REPOSITORY_TOO_LARGE_ERROR,
-} from "~/server/generate/github";
+import { REPOSITORY_TOO_LARGE_ERROR } from "~/server/generate/github";
+import { getRepositoryData } from "~/server/generate/local-repo";
 import {
   getModel,
   getProvider,
@@ -141,7 +139,12 @@ export async function POST(request: Request) {
       }
     }
 
-    const githubData = await getGithubData(username, repo, githubPat, signal);
+    const githubData = await getRepositoryData(
+      username,
+      repo,
+      githubPat,
+      signal,
+    );
     const context = prepareRepositoryContext(githubData);
     const analysisModel = selectAnalysisModel({
       provider,

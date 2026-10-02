@@ -1,4 +1,7 @@
-export type AIProvider = "openai" | "openrouter";
+import { getLocalModel } from "./local-llm";
+
+/** "local": a llama-server on this machine (see local-llm.ts). */
+export type AIProvider = "openai" | "openrouter" | "local";
 export type GenerationServiceTier = "default" | "priority";
 
 const DEFAULT_PROVIDER: AIProvider = "openai";
@@ -17,6 +20,9 @@ function normalizeProvider(value?: string): AIProvider {
   if (normalized === "openrouter") {
     return "openrouter";
   }
+  if (normalized === "local") {
+    return "local";
+  }
   return DEFAULT_PROVIDER;
 }
 
@@ -25,6 +31,9 @@ export function getProvider(overrideProvider?: string): AIProvider {
 }
 
 export function getProviderLabel(provider: AIProvider): string {
+  if (provider === "local") {
+    return "local llama-server";
+  }
   return provider === "openrouter" ? "OpenRouter" : "OpenAI";
 }
 
@@ -77,6 +86,9 @@ export function shouldUseExactInputTokenCount(params: {
 }
 
 export function getModel(provider = getProvider()): string {
+  if (provider === "local") {
+    return getLocalModel();
+  }
   if (provider === "openrouter") {
     return readEnvValue("OPENROUTER_MODEL") ?? DEFAULT_OPENROUTER_MODEL;
   }
