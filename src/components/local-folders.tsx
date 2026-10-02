@@ -17,7 +17,7 @@ export async function LocalFolders() {
           {folders.map((folder) => (
             <li key={folder.name}>
               <Link
-                href={`/local/${encodeURIComponent(folder.name)}`}
+                href={`/local/${encodeURIComponent(folder.name.toLowerCase())}`}
                 title={folder.path}
                 className="browse-muted-button inline-flex min-h-[32px] items-center rounded-full px-3 py-1 text-sm font-medium"
               >

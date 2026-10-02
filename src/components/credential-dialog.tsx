@@ -8,7 +8,6 @@ import type {
   CredentialStatus,
 } from "~/features/credentials/api";
 import { useCredentialSetting } from "~/hooks/use-credential-setting";
-import { GITHUB_REPO_URL } from "~/lib/site";
 
 import controls from "./generation/workspace.module.css";
 import {
@@ -115,18 +114,7 @@ export function CredentialDialog({
       <summary className="neo-link w-fit cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-4">
         How your data is used
       </summary>
-      <p className="mt-2 leading-relaxed">
-        {dataUsage} You can also{" "}
-        <a
-          href={GITHUB_REPO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="neo-link underline"
-        >
-          self-host
-        </a>
-        .
-      </p>
+      <p className="mt-2 leading-relaxed">{dataUsage}</p>
     </details>
   );
 

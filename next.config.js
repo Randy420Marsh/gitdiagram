@@ -1,4 +1,8 @@
 const isDevelopment = process.env.NODE_ENV !== "production";
+// Local mode (LOCAL.md) serves plain http on this machine: no HTTPS upgrades.
+const isLocalMode =
+  process.env.GITDIAGRAM_LOCAL === "1" ||
+  process.env.NEXT_PUBLIC_GITDIAGRAM_LOCAL === "1";
 
 // The live-presence worker (workers/presence): every tab holds one socket to it.
 const presenceOrigin = (() => {
@@ -34,8 +38,9 @@ const contentSecurityPolicy = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  // Safari upgrades localhost assets to HTTPS too, which breaks HTTP dev servers.
-  ...(isDevelopment ? [] : ["upgrade-insecure-requests"]),
+  // Safari upgrades localhost assets to HTTPS too, which breaks HTTP dev servers;
+  // a local-mode production build is such a server (Chrome upgrades its redirects).
+  ...(isDevelopment || isLocalMode ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 // The explainer stage renders model-written text, so it gets a stricter policy
@@ -96,11 +101,6 @@ const config = {
   transpilePackages: ["@aws-sdk/client-s3"],
   async redirects() {
     return [
-      {
-        source: "/sponsor",
-        destination: "/advertise",
-        permanent: true,
-      },
       // The video gallery moved from /watch to /videos.
       {
         source: "/:path(watch|video)",
@@ -160,27 +160,20 @@ const config = {
           },
         ],
       },
-      // Sponsor logos sit in the first screen, so skip the revalidation round
-      // trip on repeat visits. Give a changed logo a new file name.
-      {
-        source: "/sponsors/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=86400, stale-while-revalidate=604800",
-          },
-        ],
-      },
       {
         source: "/:path*",
         headers: [
           { key: "Content-Security-Policy", value: contentSecurityPolicy },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
+          ...(isLocalMode
+            ? []
+            : [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=63072000; includeSubDomains; preload",
+                },
+              ]),
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=(), payment=()",

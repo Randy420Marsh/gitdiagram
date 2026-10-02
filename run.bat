@@ -11,12 +11,16 @@ rem   run.bat                ...dev server with hot reload, http://localhost:300
 rem   run.bat --prod         ...production build (once), then next start
 rem   run.bat --rebuild      ...production build again, then next start
 rem   run.bat --port 3100    ...another port (any mode)
+rem   run.bat --lan          ...also serve to the network; folder browsing and
+rem                             model settings are then off (they could read
+rem                             the disk for anyone on the network)
 rem   run.bat --setup-only   ...do the setup steps and exit (no launch)
 
 set "BUN_VERSION=1.3.14"
 set "PORT=3000"
 set "MODE=dev"
 set "REBUILD=0"
+set "HOST=127.0.0.1"
 
 :args
 if "%~1"=="" goto :args_done
@@ -38,6 +42,11 @@ if /i "%~1"=="--port" (
     set "PORT=%~2"
     set "KNOWN=1"
     shift
+)
+if /i "%~1"=="--lan" (
+    set "HOST=0.0.0.0"
+    set "GITDIAGRAM_LAN=1"
+    set "KNOWN=1"
 )
 if "%KNOWN%"=="0" (
     echo [ERROR] unknown option: %~1
@@ -89,7 +98,7 @@ for /f "usebackq eol=# tokens=1,* delims==" %%a in (".env.local") do (
 set "LLM_ORIGIN=%LLM_URL:/v1=%"
 curl -s -f -m 3 -o nul "%LLM_ORIGIN%/health" >nul 2>nul
 if errorlevel 1 (
-    echo [WARN] No llama-server answering at %LLM_ORIGIN% - start one before generating new diagrams.
+    echo [WARN] No llama-server answering at %LLM_ORIGIN% - start one, or choose another endpoint in the app's Model dialog.
 ) else (
     echo [OK] llama-server answering at %LLM_ORIGIN%
 )
@@ -99,8 +108,8 @@ rem the MCP App view served under /mcp (quick esbuild bundle)
 call bun scripts/build-mcp-app.mjs || exit /b 1
 
 if /i "%MODE%"=="dev" (
-    echo [Start] http://localhost:%PORT% ^(dev server, hot reload^)
-    call bun run --bun next dev --turbo --port %PORT%
+    echo [Start] http://localhost:%PORT% ^(dev server, hot reload, listening on %HOST%^)
+    call bun run --bun next dev --turbo --hostname %HOST% --port %PORT%
     exit /b %errorlevel%
 )
 
@@ -110,6 +119,6 @@ if exist ".next\BUILD_ID" goto :start
 echo [Build] Production build (a few minutes)...
 call bun run --bun next build || exit /b 1
 :start
-echo [Start] http://localhost:%PORT% ^(production build; run.bat --rebuild after code changes^)
-call bun run --bun next start --port %PORT%
+echo [Start] http://localhost:%PORT% ^(production build, listening on %HOST%; run.bat --rebuild after code changes^)
+call bun run --bun next start --hostname %HOST% --port %PORT%
 exit /b %errorlevel%

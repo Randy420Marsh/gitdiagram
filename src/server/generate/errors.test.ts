@@ -4,6 +4,7 @@ import {
   BYOK_UPSTREAM_ERROR_PREFIX,
   normalizeGenerationError,
   redactUpstreamProviderTextForSharedRecord,
+  rethrowAsUpstreamProviderError,
   UpstreamProviderError,
 } from "./errors";
 import { REPOSITORY_TOO_LARGE_ERROR } from "./github";
@@ -71,6 +72,35 @@ describe("normalizeGenerationError", () => {
       `${BYOK_UPSTREAM_ERROR_PREFIX}${RATE_LIMIT_MESSAGE}`,
     );
     expect(normalized.message).toContain(RATE_LIMIT_MESSAGE);
+  });
+
+  it("shows the local endpoint's own error, kept out of stored records", () => {
+    const upstream = (() => {
+      try {
+        rethrowAsUpstreamProviderError(
+          Object.assign(new Error("429 Provider returned error"), {
+            error: {
+              metadata: {
+                raw: "qwen/qwen3.8-27b:free is temporarily rate-limited upstream.",
+              },
+            },
+          }),
+        );
+      } catch (error) {
+        return error as UpstreamProviderError;
+      }
+    })()!;
+    const normalized = normalizeGenerationError({
+      provider: "local",
+      message: upstream.message,
+      error: upstream,
+    });
+    expect(normalized.message).toBe(
+      "The model endpoint returned an error: 429 Provider returned error: qwen/qwen3.8-27b:free is temporarily rate-limited upstream.",
+    );
+    expect(redactUpstreamProviderTextForSharedRecord(normalized.message)).toBe(
+      "The AI provider returned an error while generating this diagram. Please retry.",
+    );
   });
 
   it("treats a whitespace-only key as no key at all", () => {

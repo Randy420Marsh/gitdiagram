@@ -55,10 +55,14 @@ function getOpenRouterHeaders(): Record<string, string> {
 
 function createClient(provider: AIProvider, apiKey: string): OpenAI {
   if (provider === "local") {
+    const retries = Number(process.env.LOCAL_LLM_MAX_RETRIES);
     return new OpenAI({
       apiKey,
       baseURL: getLocalBaseUrl(),
-      maxRetries: AI_MAX_RETRIES,
+      // Shared free models (OpenRouter ":free") answer 429 in bursts; the SDK
+      // retries with backoff and honors Retry-After. A retry happens before
+      // any output streams, so no finished work is repeated.
+      maxRetries: Number.isFinite(retries) && retries >= 0 ? retries : 3,
       // a local model reasons at its own pace; the route's deadline still applies
       timeout: Number(process.env.LOCAL_LLM_TIMEOUT_MS) || 600_000,
     });

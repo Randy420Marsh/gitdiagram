@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DiagramStreamHttpError } from "~/features/diagram/api";
 import type { DiagramStreamState } from "~/features/diagram/types";
 import { useDiagram } from "~/hooks/useDiagram";
-import { isExampleRepo } from "~/lib/exampleRepos";
 
 const {
   getCredentialStatus,
@@ -103,10 +102,6 @@ vi.mock("~/hooks/diagram/useDiagramStream", () => ({
       setState: trackedSetState,
     };
   },
-}));
-
-vi.mock("~/lib/exampleRepos", () => ({
-  isExampleRepo: vi.fn(() => false),
 }));
 
 describe("useDiagram", () => {
@@ -537,23 +532,6 @@ describe("useDiagram", () => {
         lastSuccessfulAt: null,
       }),
     );
-    expect(runGeneration).not.toHaveBeenCalled();
-  });
-  it("allows recovery of a saved example after its lookup failed", async () => {
-    getDiagramState.mockRejectedValueOnce(new Error("Connection interrupted"));
-    const { result } = renderHook(() => useDiagram("pallets", "flask"));
-    await waitFor(() => expect(result.current.state.status).toBe("error"));
-    vi.mocked(isExampleRepo).mockReturnValueOnce(true);
-    getDiagramState.mockResolvedValueOnce({
-      diagram: "flowchart TD\nA-->B",
-      explanation: "Saved analysis",
-      graph: null,
-      latestSessionAudit: null,
-      lastSuccessfulAt: null,
-    });
-    await act(async () => result.current.handleRegenerate());
-    expect(result.current.diagram).toContain("flowchart TD");
-    expect(result.current.loading).toBe(false);
     expect(runGeneration).not.toHaveBeenCalled();
   });
 });

@@ -3,73 +3,18 @@ import "~/styles/globals.css";
 import { GeistSans } from "geist/font/sans";
 import { type Metadata } from "next";
 import { Header } from "~/components/header";
-import { Footer } from "~/components/footer";
 import { LivePresence } from "~/components/live-presence";
 import { CSPostHogProvider } from "./providers";
-import { SponsorCampaignProvider } from "~/hooks/use-sponsor-campaign";
-import { renderedSponsorSchedule } from "~/lib/sponsor-campaign";
 import { SITE_URL } from "~/lib/site";
 import { chunkReloadScript } from "~/lib/chunk-reload";
 
+// A local app (LOCAL.md): nothing here is meant for search engines.
 export const metadata: Metadata = {
   title: "GitDiagram",
   description:
-    "Turn any GitHub repository into an interactive diagram for visualization in seconds.",
+    "Turn a local folder or a Git repository into an interactive architecture diagram.",
   metadataBase: new URL(SITE_URL),
-  keywords: [
-    "github",
-    "git diagram",
-    "git diagram generator",
-    "git diagram tool",
-    "git diagram maker",
-    "git diagram creator",
-    "diagram",
-    "repository",
-    "visualization",
-    "code structure",
-    "system design",
-    "software architecture",
-    "software design",
-    "software engineering",
-    "software development",
-    "open source",
-    "open source software",
-    "ahmedkhaleel2004",
-    "ahmed khaleel",
-    "gitdiagram",
-    "gitdiagram.com",
-  ],
-  authors: [
-    { name: "Ahmed Khaleel", url: "https://github.com/ahmedkhaleel2004" },
-  ],
-  creator: "Ahmed Khaleel",
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: SITE_URL,
-    title: "GitDiagram - Repository to Diagram in Seconds",
-    description:
-      "Turn any GitHub repository into an interactive diagram for visualization.",
-    siteName: "GitDiagram",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "GitDiagram - Repository to Diagram in Seconds",
-    description:
-      "Turn any GitHub repository into an interactive diagram for visualization.",
-    creator: "@ahmedkhaleel2004",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-image-preview": "large",
-      "max-video-preview": -1,
-      "max-snippet": -1,
-    },
-  },
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({
@@ -87,11 +32,8 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-screen flex-col">
         <CSPostHogProvider>
-          <SponsorCampaignProvider {...renderedSponsorSchedule()}>
-            <Header />
-            <div className="flex-grow">{children}</div>
-            <Footer />
-          </SponsorCampaignProvider>
+          <Header />
+          <div className="flex-grow">{children}</div>
           <LivePresence />
         </CSPostHogProvider>
       </body>

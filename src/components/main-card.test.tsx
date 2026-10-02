@@ -1,7 +1,13 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import MainCard from "~/components/main-card";
+import MainCard, { looksLikeFolderPath } from "~/components/main-card";
 import { recordRecentDiagram } from "~/features/recent/recent-diagrams";
 
 const { capture } = vi.hoisted(() => ({ capture: vi.fn() }));
@@ -61,19 +67,11 @@ describe("MainCard", () => {
     );
   });
 
-  it("lets example repositories navigate without submitting the required input", () => {
+  it("shows no example repositories and no folder browser outside local mode", () => {
     render(<MainCard />);
-
-    const exampleButton = screen.getByRole("button", { name: "FastAPI" });
-    expect(exampleButton).toHaveAttribute("type", "button");
-
-    fireEvent.click(exampleButton);
-
-    expect(push).toHaveBeenCalledWith("/fastapi/fastapi");
+    expect(screen.queryByText(/example repositories/i)).not.toBeInTheDocument();
     expect(
-      screen.queryByText(
-        "Please enter a valid GitHub repository URL or owner/repo",
-      ),
+      screen.queryByRole("button", { name: /browse/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -109,5 +107,57 @@ describe("MainCard", () => {
       screen.getByRole("button", { name: "Clear recent diagrams" }),
     );
     expect(screen.queryByText("Recent:")).not.toBeInTheDocument();
+  });
+});
+
+describe("looksLikeFolderPath", () => {
+  it.each([
+    ["C:\\Projects\\app", true],
+    ["c:/projects/app", true],
+    ['"D:\\Code\\my app"', true],
+    ["\\\\server\\share\\repo", true],
+    ["/home/me/project", true],
+    ["~/project", true],
+    ["owner/repo", false],
+    ["https://github.com/owner/repo", false],
+    ["repo", false],
+  ])("%s -> %s", (input, expected) => {
+    expect(looksLikeFolderPath(input)).toBe(expected);
+  });
+});
+
+describe("MainCard in local mode", () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("opens a typed folder path through the server", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GITDIAGRAM_LOCAL", "1");
+    vi.resetModules();
+    const fetchMock = vi.fn(async () =>
+      Response.json({ ok: true, name: "app", url: "/local/app" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { default: LocalMainCard } = await import("~/components/main-card");
+    render(<LocalMainCard />);
+
+    expect(screen.getByRole("button", { name: /browse/i })).toBeInTheDocument();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Folder or GitHub repository" }),
+      { target: { value: "C:\\Projects\\app" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Diagram" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/local/app"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/local/register",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ path: "C:\\Projects\\app" }),
+      }),
+    );
   });
 });

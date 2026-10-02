@@ -7,6 +7,9 @@
 #   ./run.sh --prod         -> production build (once), then next start
 #   ./run.sh --rebuild      -> production build again, then next start
 #   ./run.sh --port 3100    -> another port (any mode)
+#   ./run.sh --lan          -> also serve to the network; folder browsing and
+#                              model settings are then off (they could read
+#                              the disk for anyone on the network)
 #   ./run.sh --setup-only   -> do the setup steps and exit (no launch)
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -15,12 +18,14 @@ BUN_VERSION=1.3.14
 PORT=3000
 MODE=dev
 REBUILD=0
+HOST=127.0.0.1
 while [ $# -gt 0 ]; do
     case "$1" in
         --prod) MODE=prod ;;
         --rebuild) MODE=prod; REBUILD=1 ;;
         --setup-only) MODE=setup ;;
         --port) PORT="$2"; shift ;;
+        --lan) HOST=0.0.0.0; export GITDIAGRAM_LAN=1 ;;
         *) echo "[ERROR] unknown option: $1"; exit 2 ;;
     esac
     shift
@@ -68,7 +73,7 @@ LLM_ORIGIN="${LLM_ORIGIN%/v1}"
 if curl -s -f -m 3 -o /dev/null "$LLM_ORIGIN/health"; then
     echo "[OK] llama-server answering at $LLM_ORIGIN"
 else
-    echo "[WARN] No llama-server answering at $LLM_ORIGIN - start one before generating new diagrams."
+    echo "[WARN] No llama-server answering at $LLM_ORIGIN - start one, or choose another endpoint in the app's Model dialog."
 fi
 
 export NEXT_TELEMETRY_DISABLED=1
@@ -76,13 +81,13 @@ export NEXT_TELEMETRY_DISABLED=1
 bun scripts/build-mcp-app.mjs
 
 if [ "$MODE" = dev ]; then
-    echo "[Start] http://localhost:$PORT (dev server, hot reload)"
-    exec bun run --bun next dev --turbo --port "$PORT"
+    echo "[Start] http://localhost:$PORT (dev server, hot reload, listening on $HOST)"
+    exec bun run --bun next dev --turbo --hostname "$HOST" --port "$PORT"
 fi
 
 if [ "$REBUILD" = 1 ] || [ ! -f .next/BUILD_ID ]; then
     echo "[Build] Production build (a few minutes)..."
     bun run --bun next build
 fi
-echo "[Start] http://localhost:$PORT (production build; ./run.sh --rebuild after code changes)"
-exec bun run --bun next start --port "$PORT"
+echo "[Start] http://localhost:$PORT (production build, listening on $HOST; ./run.sh --rebuild after code changes)"
+exec bun run --bun next start --hostname "$HOST" --port "$PORT"

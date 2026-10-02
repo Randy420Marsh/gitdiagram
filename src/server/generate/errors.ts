@@ -35,10 +35,16 @@ export function rethrowAsUpstreamProviderError(error: unknown): never {
     throw error;
   }
 
-  throw new UpstreamProviderError(
-    error instanceof Error ? error.message : "Model provider request failed.",
-    { cause: error },
-  );
+  let message =
+    error instanceof Error ? error.message : "Model provider request failed.";
+  // OpenRouter answers "Provider returned error" and puts what happened (a
+  // rate-limited free model, an unknown model) in error.metadata.raw.
+  const raw = (error as { error?: { metadata?: { raw?: unknown } } } | null)
+    ?.error?.metadata?.raw;
+  if (typeof raw === "string" && raw.trim() && !message.includes(raw)) {
+    message = `${message}: ${raw.trim().slice(0, 500)}`;
+  }
+  throw new UpstreamProviderError(message, { cause: error });
 }
 
 const DEFAULT_OPENAI_KEY_QUOTA_EXHAUSTED_ERROR =
@@ -56,16 +62,26 @@ const REDACTED_UPSTREAM_ERROR =
  * boundary without a side channel.
  */
 export const BYOK_UPSTREAM_ERROR_PREFIX = "Your AI provider key hit an error: ";
+/**
+ * The same marking for AI_PROVIDER=local: the endpoint is the user's own
+ * choice (their llama-server, or OpenRouter with their key), so its error text
+ * is what they need to see ("temporarily rate-limited upstream", "model not
+ * found"), and it is kept out of stored records the same way.
+ */
+const LOCAL_UPSTREAM_ERROR_PREFIX = "The model endpoint returned an error: ";
 
 /**
- * Replaces raw provider text (marked by `BYOK_UPSTREAM_ERROR_PREFIX`) with the
- * generic upstream error before an audit is written to shared storage.
- * App-authored messages pass through untouched.
+ * Replaces raw provider text (marked by `BYOK_UPSTREAM_ERROR_PREFIX` or the
+ * local-endpoint prefix) with the generic upstream error before an audit is
+ * written to shared storage. App-authored messages pass through untouched.
  */
 export function redactUpstreamProviderTextForSharedRecord(
   message: string | undefined,
 ): string | undefined {
-  if (message?.startsWith(BYOK_UPSTREAM_ERROR_PREFIX)) {
+  if (
+    message?.startsWith(BYOK_UPSTREAM_ERROR_PREFIX) ||
+    message?.startsWith(LOCAL_UPSTREAM_ERROR_PREFIX)
+  ) {
     return REDACTED_UPSTREAM_ERROR;
   }
   return message;
@@ -130,6 +146,12 @@ export function normalizeGenerationError(params: {
   // message is tagged with `BYOK_UPSTREAM_ERROR_PREFIX` so the persistence
   // boundary keeps the raw provider text out of the shared failure record.
   if (params.error instanceof UpstreamProviderError) {
+    if (params.provider === "local") {
+      return {
+        message: `${LOCAL_UPSTREAM_ERROR_PREFIX}${params.message}`,
+        errorCode: "STREAM_FAILED",
+      };
+    }
     if (!params.apiKey?.trim()) {
       return {
         message: REDACTED_UPSTREAM_ERROR,

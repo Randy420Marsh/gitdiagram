@@ -18,7 +18,6 @@ import {
   type GenerationOutcome,
   useDiagramStream,
 } from "~/hooks/diagram/useDiagramStream";
-import { isExampleRepo } from "~/lib/exampleRepos";
 
 type DiagramStateSyncMode = "foreground" | "background";
 
@@ -469,18 +468,11 @@ export function useDiagram(
   );
 
   const handleRegenerate = useCallback(async () => {
-    if (isExampleRepo(username, repo)) {
-      // The example's Regenerate control stays disabled, but error recovery
-      // must still reload its saved diagram after a failed or stopped lookup.
-      if (state.status === "error") await getDiagram();
-      return;
-    }
-
     await runGenerationOperation(
       "Something went wrong. Please try again later.",
       "regenerate",
     );
-  }, [getDiagram, repo, runGenerationOperation, state.status, username]);
+  }, [runGenerationOperation]);
 
   const handleCancel = useCallback(() => {
     // Also invalidate a still-pending cache lookup so it cannot start a new

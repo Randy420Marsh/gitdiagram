@@ -20,7 +20,7 @@ import {
   type HoverPreviewState,
   type HoverPreviewStatus,
 } from "~/components/browse-catalog-shared";
-import { SponsorCatalogRow } from "~/components/sponsor-slot";
+import { isLocalRepositoryOwner } from "~/features/diagram/local-repository";
 import { useHydrated } from "~/hooks/use-hydrated";
 
 interface BrowseCatalogResultsProps {
@@ -105,7 +105,7 @@ export function BrowseCatalogResults({
             </tr>
           </thead>
           <tbody className="block lg:table-row-group">
-            {result.items.flatMap((item, index) => {
+            {result.items.map((item) => {
               const diagramPath = `/${encodeURIComponent(item.username)}/${encodeURIComponent(item.repo)}`;
               const githubPath = `https://github.com/${item.username}/${item.repo}`;
 
@@ -161,21 +161,19 @@ export function BrowseCatalogResults({
                           className="size-4 lg:hidden"
                         />
                       </Link>
-                      <Link
-                        href={githubPath}
-                        className="browse-muted-button inline-flex min-h-11 w-full items-center justify-center rounded-md px-3 py-2 text-sm font-semibold whitespace-nowrap lg:min-h-0 lg:min-w-0 lg:px-3 lg:py-2 lg:text-sm xl:w-auto xl:min-w-[104px] xl:px-4"
-                      >
-                        GitHub
-                      </Link>
+                      {!isLocalRepositoryOwner(item.username) && (
+                        <Link
+                          href={githubPath}
+                          className="browse-muted-button inline-flex min-h-11 w-full items-center justify-center rounded-md px-3 py-2 text-sm font-semibold whitespace-nowrap lg:min-h-0 lg:min-w-0 lg:px-3 lg:py-2 lg:text-sm xl:w-auto xl:min-w-[104px] xl:px-4"
+                        >
+                          GitHub
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>
               );
-              // Its own stable key keeps the ad row mounted while searches,
-              // filters, sorting and paging replace the listings around it.
-              return index === 1
-                ? [<SponsorCatalogRow key="sponsor" />, row]
-                : [row];
+              return row;
             })}
           </tbody>
         </table>

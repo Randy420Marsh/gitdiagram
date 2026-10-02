@@ -53,7 +53,7 @@ export function PlaceholderRepo({
         </div>
       </div>
       <div className="flex justify-center sm:mb-16 lg:mb-0">
-        <MainCard sponsor={false} />
+        <MainCard />
       </div>
     </main>
   );

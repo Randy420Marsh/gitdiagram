@@ -15,8 +15,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("~/hooks/useDiagram", () => ({
   useDiagram: (...args: unknown[]) => useDiagram(...args),
 }));
-vi.mock("~/hooks/useStarReminder", () => ({ useStarReminder: vi.fn() }));
-vi.mock("~/components/sponsor-slot", () => ({ SponsorSlot: () => null }));
 vi.mock("~/components/mermaid-diagram", () => ({
   default: ({
     chart,
@@ -31,7 +29,9 @@ vi.mock("~/components/mermaid-diagram", () => ({
     </div>
   ),
 }));
-vi.mock("~/components/api-key-dialog", () => ({ ApiKeyDialog: () => null }));
+vi.mock("~/components/model-settings-dialog", () => ({
+  ModelSettingsDialog: () => null,
+}));
 function setup(state: DiagramStreamState) {
   useDiagram.mockReturnValue({
     diagram: state.diagram ?? "",
@@ -83,21 +83,21 @@ describe("RepoPageClient", () => {
       expect.objectContaining({ description: persistenceWarning }),
     );
   });
-  it("offers the API key escape hatch on rate limits", () => {
-    setup({
-      status: "error",
-      error: "Too many free generations. Try again later.",
-      errorCode: "RATE_LIMITED",
-    });
+  it.each([
+    ["RATE_LIMITED", "Too many free generations. Try again later."],
+    [undefined, "Could not reach the local llama-server endpoint."],
+    [undefined, "OpenRouter model does not support the required output."],
+  ])("offers the Model settings on model failures (%s)", (errorCode, error) => {
+    setup({ status: "error", error, errorCode });
     render(<RepoPageClient username="Acme" repo="Demo" />);
-    fireEvent.click(screen.getByRole("button", { name: /use your ai key/i }));
+    fireEvent.click(screen.getByRole("button", { name: /model settings/i }));
     expect(openKey).toHaveBeenCalledOnce();
   });
-  it("does not suggest API keys for unrelated failures", () => {
+  it("does not suggest the Model settings for unrelated failures", () => {
     setup({ status: "error", error: "Something went wrong." });
     render(<RepoPageClient username="Acme" repo="Demo" />);
     expect(
-      screen.queryByRole("button", { name: /use your ai key/i }),
+      screen.queryByRole("button", { name: /model settings/i }),
     ).not.toBeInTheDocument();
   });
   it("shows final cost within Info", async () => {
@@ -140,7 +140,7 @@ describe("RepoPageClient", () => {
       screen.getByRole("button", { name: "Add GitHub access" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /use your ai key/i }),
+      screen.queryByRole("button", { name: /model settings/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Open repository on GitHub" }),

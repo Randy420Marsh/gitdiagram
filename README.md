@@ -4,22 +4,15 @@ Visualize any codebase: turn any public or private GitHub repository into an int
 
 **[Try GitDiagram →](https://gitdiagram.com/)** · Or replace `hub` with `diagram` in any GitHub repository URL.
 
-> **This fork adds a local mode**: diagrams from your own llama.cpp `llama-server`, stored on disk,
-> including folders on your machine, with no hosted services. Start it with `run.bat` (Windows)
-> or `./run.sh`; see [LOCAL.md](LOCAL.md).
+> **This fork is a local edition**: diagrams of folders on your machine or GitHub repositories,
+> made by your own llama.cpp `llama-server` or any OpenAI-compatible API you choose, stored on
+> disk, with no hosted services and no sponsor or promotion parts. Start it with `run.bat`
+> (Windows) or `./run.sh`; see [LOCAL.md](LOCAL.md). The rest of this README describes the
+> upstream hosted site.
 
 [![GitDiagram front page](./docs/readme_img.png)](https://gitdiagram.com/)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061.svg?logo=ko-fi&logoColor=white)](https://ko-fi.com/ahmedkhaleel2004)
-
-<!-- sponsor:start -->
-
-> <a href="https://gitdiagram.com/out/sent-2026-09?placement=readme"><picture><source media="(prefers-color-scheme: dark)" srcset="./public/sponsors/sent-logo-dark.svg" /><img src="./public/sponsors/sent-logo.png" alt="Sent" width="104" align="middle" /></picture></a>&nbsp;&nbsp; <sub>Sponsored</sub>
->
-> SMS, WhatsApp, and RCS through one API. [Try Sent →](https://gitdiagram.com/out/sent-2026-09?placement=readme)
-
-<!-- sponsor:end -->
 
 ## New: explainer videos
 

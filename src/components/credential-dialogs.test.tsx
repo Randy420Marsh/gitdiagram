@@ -8,7 +8,6 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiKeyDialog } from "~/components/api-key-dialog";
 import { PrivateReposDialog } from "~/components/private-repos-dialog";
 
 const mocks = vi.hoisted(() => ({
@@ -54,64 +53,6 @@ describe("credential dialogs", () => {
       openaiApiKeyConfigured: false,
       githubPatConfigured: false,
     });
-  });
-
-  it("saves an OpenAI key without ever pre-filling the secret", async () => {
-    const onClose = vi.fn();
-    const onSaved = vi.fn();
-    render(<ApiKeyDialog isOpen onClose={onClose} onSaved={onSaved} />);
-
-    await waitFor(() => expect(mocks.getCredentialStatus).toHaveBeenCalled());
-    const input = screen.getByLabelText("OpenAI API key", {
-      selector: "input",
-    });
-    expect(input).toHaveValue("");
-    expect(input).toHaveClass("ph-no-capture");
-    expect(screen.getByRole("dialog").closest(".ph-no-capture")).toBeNull();
-
-    fireEvent.change(input, { target: { value: "sk-browser-entry" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save & retry" }));
-
-    await waitFor(() =>
-      expect(mocks.saveCredential).toHaveBeenCalledWith(
-        "openai_api_key",
-        "sk-browser-entry",
-      ),
-    );
-    expect(onClose).toHaveBeenCalled();
-    expect(onSaved).toHaveBeenCalled();
-  });
-
-  it("does not let a late status response overwrite a successful save", async () => {
-    const credentialStatus = createDeferred<{
-      githubPatConfigured: boolean;
-      openaiApiKeyConfigured: boolean;
-    }>();
-    mocks.getCredentialStatus.mockReturnValueOnce(credentialStatus.promise);
-    render(<ApiKeyDialog isOpen onClose={vi.fn()} />);
-
-    fireEvent.change(
-      screen.getByLabelText("OpenAI API key", { selector: "input" }),
-      {
-        target: { value: "sk-browser-entry" },
-      },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Save key" }));
-
-    expect(
-      await screen.findByText("Key saved. Paste a new one to replace it."),
-    ).toBeInTheDocument();
-
-    credentialStatus.resolve({
-      githubPatConfigured: false,
-      openaiApiKeyConfigured: false,
-    });
-
-    await waitFor(() =>
-      expect(
-        screen.getByText("Key saved. Paste a new one to replace it."),
-      ).toBeInTheDocument(),
-    );
   });
 
   it("accepts fine-grained GitHub PATs and clears only through the API", async () => {
@@ -191,40 +132,7 @@ describe("credential dialogs", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t copy");
   });
 
-  it("opens OpenAI setup separately and copies instructions without the entered key", async () => {
-    render(<ApiKeyDialog isOpen onClose={vi.fn()} />);
-    expect(
-      screen.getByRole("link", { name: "Create key on OpenAI" }),
-    ).toHaveAttribute("href", "https://platform.openai.com/api-keys");
-    expect(
-      screen.getByRole("link", { name: "Create key on OpenAI" }),
-    ).toHaveAttribute("target", "_blank");
-    fireEvent.change(
-      screen.getByLabelText("OpenAI API key", { selector: "input" }),
-      {
-        target: { value: "sk-secret-entry" },
-      },
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Copy prompt for my AI" }),
-    );
-    await screen.findByRole("button", { name: "Copied! Paste into your AI" });
-    const prompt = mocks.writeText.mock.calls[0]![0] as string;
-    expect(prompt).toContain("https://platform.openai.com/api-keys");
-    expect(prompt).toContain("billed to my OpenAI API account");
-    expect(prompt).toContain("Do not put the key in chat, logs, or files.");
-    expect(prompt).not.toContain("sk-secret-entry");
-    expect(mocks.saveCredential).not.toHaveBeenCalled();
-  });
-
   describe.each([
-    {
-      name: "API key",
-      Component: ApiKeyDialog,
-      inputLabel: "OpenAI API key",
-      noun: "key",
-      credential: "openai_api_key",
-    },
     {
       name: "GitHub token",
       Component: PrivateReposDialog,

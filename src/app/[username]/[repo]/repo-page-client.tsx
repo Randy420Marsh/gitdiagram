@@ -2,19 +2,16 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { ExternalLink, Key, LockKeyhole } from "lucide-react";
+import { ExternalLink, LockKeyhole, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import type { DiagramStateResponse } from "~/features/diagram/types";
 import { RepositoryWorkspace } from "~/components/generation/repository-workspace";
 import { loadDiagramRenderer } from "~/components/generation/load-diagram-renderer";
 import { useDiagram } from "~/hooks/useDiagram";
 import { useGitHubConnectResult } from "~/hooks/use-github-connect-result";
-import { ApiKeyDialog } from "~/components/api-key-dialog";
-import { useStarReminder } from "~/hooks/useStarReminder";
 import { usePublicDiagram } from "~/hooks/use-public-diagram";
 import { Toaster } from "~/components/ui/sonner";
 import { TooltipProvider } from "~/components/ui/tooltip";
-import { isExampleRepo } from "~/lib/exampleRepos";
 import { VIDEOS_ENABLED } from "~/lib/video-flag";
 import { githubAccessTitle } from "~/features/diagram/github-access";
 import { isLocalRepositoryOwner } from "~/features/diagram/local-repository";
@@ -44,6 +41,18 @@ const PrivateReposDialog = dynamic(
   { ssr: false },
 );
 
+const ModelSettingsDialog = dynamic(
+  () =>
+    import("~/components/model-settings-dialog").then(
+      (module) => module.ModelSettingsDialog,
+    ),
+  { ssr: false },
+);
+
+// A failure the model endpoint can explain: wrong URL, key, model or a limit.
+const MODEL_ERROR =
+  /api key|model|provider|upstream|endpoint|llama|rate limit/i;
+
 type RepoPageClientProps = {
   username: string;
   repo: string;
@@ -62,7 +71,6 @@ export default function RepoPageClient({
 }: RepoPageClientProps) {
   const [showGithubAccess, setShowGithubAccess] = useState(false);
   const [connectResult, dismissConnectResult] = useGitHubConnectResult("repo");
-  useStarReminder();
   const normalizedUsername = username.toLowerCase();
   const normalizedRepo = repo.toLowerCase();
   const repository = `${normalizedUsername}/${normalizedRepo}`;
@@ -94,10 +102,11 @@ export default function RepoPageClient({
       ? initialState?.lastSuccessfulAt
       : null,
   });
+  // the Model dialog (endpoint, key, model) is the fix for these
   const showApiKeyCta =
     state.errorCode === "RATE_LIMITED" ||
-    Boolean(error?.includes("API key")) ||
-    Boolean(state.error?.includes("API key"));
+    MODEL_ERROR.test(error ?? "") ||
+    MODEL_ERROR.test(state.error ?? "");
   const showGithubAccessCta = Boolean(githubAccessTitle(state.errorCode));
 
   useEffect(() => {
@@ -132,7 +141,7 @@ export default function RepoPageClient({
           onRegenerate={() => void handleRegenerate()}
           onCancel={handleCancel}
           onRenderError={handleDiagramRenderError}
-          regenerateDisabled={isExampleRepo(normalizedUsername, normalizedRepo)}
+          regenerateDisabled={false}
           readme={publicDiagram ?? undefined}
           video={
             VIDEOS_ENABLED ? (
@@ -165,8 +174,8 @@ export default function RepoPageClient({
                   onClick={handleOpenApiKeyDialog}
                   className={`${controls.actionButton} ${controls.primary}`}
                 >
-                  <Key size={14} aria-hidden="true" />
-                  Use Your AI Key
+                  <SlidersHorizontal size={14} aria-hidden="true" />
+                  Model settings
                 </button>
               )}
               {!isLocalRepositoryOwner(username) && (
@@ -184,11 +193,13 @@ export default function RepoPageClient({
           }
         />
         {readout}
-        <ApiKeyDialog
-          isOpen={showApiKeyDialog}
-          onClose={handleCloseApiKeyDialog}
-          onSaved={handleApiKeySaved}
-        />
+        {showApiKeyDialog && (
+          <ModelSettingsDialog
+            isOpen
+            onClose={handleCloseApiKeyDialog}
+            onSaved={handleApiKeySaved}
+          />
+        )}
         {showGithubAccess && (
           <PrivateReposDialog
             isOpen

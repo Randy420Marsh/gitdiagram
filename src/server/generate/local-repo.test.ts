@@ -1,19 +1,32 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  browseLocalFolder,
   getLocalRepositoryData,
   isLocalRepository,
   listLocalRepositories,
+  normalizeLocalPath,
   readLocalSource,
+  registerLocalPath,
   resolveLocalRepository,
 } from "~/server/generate/local-repo";
 
 // <root>/demo is a plain folder (no git), so the directory walk is used.
 const root = mkdtempSync(path.join(tmpdir(), "gitdiagram-repos-"));
 const demo = path.join(root, "demo");
+const camel = path.join(root, "CamelRepo");
+mkdirSync(camel, { recursive: true });
+// a folder outside the roots, picked in the app; another with a clashing name
+const outside = mkdtempSync(path.join(tmpdir(), "gitdiagram-elsewhere-"));
+const picked = path.join(outside, "My App!");
+const clash = path.join(outside, "nested", "demo");
+const dataDir = mkdtempSync(path.join(tmpdir(), "gitdiagram-data-"));
+mkdirSync(path.join(picked, ".git"), { recursive: true });
+mkdirSync(path.join(picked, "src"), { recursive: true });
+mkdirSync(clash, { recursive: true });
 for (const [file, text] of Object.entries({
   "README.md": "# Demo\n",
   "src/main.ts": "import { util } from './util';\n",
@@ -30,11 +43,76 @@ writeFileSync(path.join(demo, "src/blob.bin"), Buffer.from([1, 0, 2]));
 beforeEach(() => {
   vi.stubEnv("GITDIAGRAM_LOCAL", "1");
   vi.stubEnv("LOCAL_REPO_ROOTS", root);
+  vi.stubEnv("LOCAL_DATA_DIR", dataDir);
 });
 
 afterAll(() => {
   vi.unstubAllEnvs();
-  rmSync(root, { recursive: true, force: true });
+  for (const folder of [root, outside, dataDir]) {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+describe("folders picked in the app", () => {
+  it("keep a root's sub-folder under its own name", async () => {
+    expect(await registerLocalPath(demo)).toEqual({ name: "demo", path: demo });
+  });
+
+  it("give any other folder a safe, stable, unique name", async () => {
+    const first = await registerLocalPath(`"${picked}"`);
+    expect(first).toEqual({ name: "my-app", path: picked });
+    expect(await registerLocalPath(picked)).toEqual(first);
+    expect(await resolveLocalRepository("my-app")).toBe(picked);
+    expect(await resolveLocalRepository("My-App")).toBe(picked);
+    // "demo" is taken by the root's folder
+    expect((await registerLocalPath(clash)).name).toBe("demo-2");
+    expect((await listLocalRepositories()).map((entry) => entry.name)).toEqual([
+      "CamelRepo",
+      "demo",
+      "demo-2",
+      "my-app",
+    ]);
+  });
+
+  it("find a root's folder from its lower-case address", async () => {
+    expect(await registerLocalPath(camel)).toEqual({
+      name: "camelrepo",
+      path: camel,
+    });
+    // the proxy lower-cases every repository address
+    expect(await resolveLocalRepository("camelrepo")).toBe(camel);
+  });
+
+  it("refuse what is not a folder", async () => {
+    await expect(registerLocalPath("relative/path")).rejects.toThrow(
+      "full folder path",
+    );
+    await expect(
+      registerLocalPath(path.join(outside, "missing")),
+    ).rejects.toThrow("Folder not found");
+  });
+
+  it("are browsed folder by folder, repositories marked", async () => {
+    const top = await browseLocalFolder(outside);
+    expect(top.entries.map((entry) => [entry.name, entry.git])).toEqual([
+      ["My App!", true],
+      ["nested", false],
+    ]);
+    const inside = await browseLocalFolder(picked);
+    expect(inside.git).toBe(true);
+    expect(inside.parent).toBe(outside);
+    // .git is hidden; src is listed
+    expect(inside.entries.map((entry) => entry.name)).toEqual(["src"]);
+    const places = await browseLocalFolder("");
+    expect(places.path).toBeNull();
+    expect(places.entries.some((entry) => entry.path === root)).toBe(true);
+  });
+
+  it("normalize typed paths", () => {
+    expect(normalizeLocalPath("relative")).toBeNull();
+    expect(normalizeLocalPath(`  '${picked}'  `)).toBe(picked);
+    expect(normalizeLocalPath("~")).toBe(path.resolve(homedir()));
+  });
 });
 
 describe("local repositories", () => {
@@ -49,9 +127,10 @@ describe("local repositories", () => {
     expect(await resolveLocalRepository("..")).toBeNull();
     expect(await resolveLocalRepository("demo/src")).toBeNull();
     expect(await resolveLocalRepository("missing")).toBeNull();
-    expect(await listLocalRepositories()).toEqual([
-      { name: "demo", path: demo },
-    ]);
+    expect(await listLocalRepositories()).toContainEqual({
+      name: "demo",
+      path: demo,
+    });
   });
 
   it("read like a GitHub repository", async () => {

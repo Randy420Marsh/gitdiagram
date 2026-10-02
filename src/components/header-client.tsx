@@ -1,69 +1,37 @@
 "use client";
 
-import { Suspense, use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 
-import { GitHubIcon } from "~/components/icons/github-icon";
 import { useGitHubConnectResult } from "~/hooks/use-github-connect-result";
-import { formatCompact } from "~/lib/format";
-import { GITHUB_REPO_URL } from "~/lib/site";
 import { VIDEOS_ENABLED } from "~/lib/video-flag";
 
 import { NewBadge } from "./new-badge";
 import { ThemeToggle } from "./theme-toggle";
 
-const loadApiKeyDialog = () =>
-  import("./api-key-dialog").then((module) => module.ApiKeyDialog);
+const loadModelSettingsDialog = () =>
+  import("./model-settings-dialog").then(
+    (module) => module.ModelSettingsDialog,
+  );
 const loadPrivateReposDialog = () =>
   import("./private-repos-dialog").then((module) => module.PrivateReposDialog);
 
-const ApiKeyDialog = dynamic(loadApiKeyDialog, { ssr: false });
+const ModelSettingsDialog = dynamic(loadModelSettingsDialog, { ssr: false });
 const PrivateReposDialog = dynamic(loadPrivateReposDialog, { ssr: false });
 
-interface HeaderClientProps {
-  starCount: Promise<number | null>;
-}
+const NAV_LINK =
+  "text-sm font-medium text-black transition-colors duration-150 hover:text-purple-600 dark:text-neutral-200 dark:hover:text-[hsl(var(--neo-link-hover))]";
+const MENU_ITEM =
+  "browse-muted-button inline-flex min-h-[48px] items-center justify-between rounded-md px-4 py-3 text-sm font-semibold";
 
-function formatStarCount(count: number) {
-  return formatCompact(count).toLowerCase();
-}
-
-function MobileStarCount({ starCount }: HeaderClientProps) {
-  const count = use(starCount);
-  return count !== null ? formatStarCount(count) : "GitHub";
-}
-
-function DesktopStarCount({ starCount }: HeaderClientProps) {
-  const count = use(starCount);
-  if (count === null) return null;
-
-  return (
-    <span className="flex items-center gap-1">
-      <span className="text-amber-400 dark:text-[hsl(var(--neo-link))]">★</span>
-      {formatStarCount(count)}
-    </span>
-  );
-}
-
-function MobileMenuStarCount({ starCount }: HeaderClientProps) {
-  const count = use(starCount);
-  if (count === null) return null;
-
-  return (
-    <span className="text-xs tracking-[0.12em] text-[hsl(var(--neo-soft-text))] uppercase dark:text-neutral-300">
-      {formatStarCount(count)}
-    </span>
-  );
-}
-
-export function HeaderClient({ starCount }: HeaderClientProps) {
+export function HeaderClient() {
   const pathname = usePathname();
   const [isPrivateReposDialogOpen, setIsPrivateReposDialogOpen] =
     useState(false);
-  const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
+  const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
   const [connectResult, dismissConnectResult] = useGitHubConnectResult("menu");
   // Back from a GitHub sign-in started here: reopen the dialog, which shows
   // the connected account or why the sign-in did not finish.
@@ -71,11 +39,7 @@ export function HeaderClient({ starCount }: HeaderClientProps) {
     if (connectResult) setIsPrivateReposDialogOpen(true);
   }, [connectResult]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // pathname is identical on server and client for full-page loads (the proxy
-  // never rewrites URLs), so these can render at SSR without mismatch risk.
   const isBrowsePage = pathname === "/browse";
-  const showMobileGithubButton =
-    pathname === "/" || isBrowsePage || pathname === "/videos";
 
   return (
     <header className="border-black sm:border-b-[3px] dark:border-black">
@@ -91,22 +55,7 @@ export function HeaderClient({ starCount }: HeaderClientProps) {
           </span>
         </Link>
         <div className="flex items-center gap-2 sm:hidden">
-          {showMobileGithubButton ? (
-            <Link
-              href={GITHUB_REPO_URL}
-              className="browse-muted-button inline-flex min-h-[42px] items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold"
-            >
-              <GitHubIcon className="h-4 w-4" />
-              <span className="flex items-center gap-1">
-                <span className="text-amber-400 dark:text-[hsl(var(--neo-link))]">
-                  ★
-                </span>
-                <Suspense fallback="GitHub">
-                  <MobileStarCount starCount={starCount} />
-                </Suspense>
-              </span>
-            </Link>
-          ) : !isBrowsePage ? (
+          {!isBrowsePage ? (
             <Link
               href="/browse"
               prefetch={false}
@@ -141,41 +90,28 @@ export function HeaderClient({ starCount }: HeaderClientProps) {
               <NewBadge />
             </Link>
           )}
-          <Link
-            href="/browse"
-            className="text-sm font-medium text-black transition-colors duration-150 hover:text-purple-600 dark:text-neutral-200 dark:hover:text-[hsl(var(--neo-link-hover))]"
-          >
+          <Link href="/browse" className={NAV_LINK}>
             Browse
           </Link>
           <button
             type="button"
-            onFocus={() => void loadApiKeyDialog()}
-            onPointerEnter={() => void loadApiKeyDialog()}
-            onClick={() => setIsApiKeyDialogOpen(true)}
-            className="text-sm font-medium text-black transition-colors duration-150 hover:text-purple-600 dark:text-neutral-200 dark:hover:text-[hsl(var(--neo-link-hover))]"
+            onFocus={() => void loadModelSettingsDialog()}
+            onPointerEnter={() => void loadModelSettingsDialog()}
+            onClick={() => setIsModelDialogOpen(true)}
+            className={NAV_LINK}
           >
-            API Key
+            Model
           </button>
           <button
             type="button"
             onFocus={() => void loadPrivateReposDialog()}
             onPointerEnter={() => void loadPrivateReposDialog()}
             onClick={() => setIsPrivateReposDialogOpen(true)}
-            className="text-sm font-medium text-black transition-colors duration-150 hover:text-purple-600 dark:text-neutral-200 dark:hover:text-[hsl(var(--neo-link-hover))]"
+            className={NAV_LINK}
           >
             Private Repos
           </button>
           <ThemeToggle />
-          <Link
-            href={GITHUB_REPO_URL}
-            className="flex items-center gap-1 text-sm font-medium text-black transition-colors duration-150 hover:text-purple-600 sm:gap-2 dark:text-neutral-200 dark:hover:text-[hsl(var(--neo-link-hover))]"
-          >
-            <GitHubIcon className="h-5 w-5" />
-            <span className="hidden sm:inline">GitHub</span>
-            <Suspense fallback={null}>
-              <DesktopStarCount starCount={starCount} />
-            </Suspense>
-          </Link>
         </nav>
 
         <div
@@ -212,22 +148,22 @@ export function HeaderClient({ starCount }: HeaderClientProps) {
                     href="/browse"
                     prefetch={false}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="browse-muted-button inline-flex min-h-[48px] items-center justify-between rounded-md px-4 py-3 text-sm font-semibold"
+                    className={MENU_ITEM}
                   >
                     Browse
                   </Link>
                 ) : null}
                 <button
                   type="button"
-                  onFocus={() => void loadApiKeyDialog()}
-                  onPointerEnter={() => void loadApiKeyDialog()}
+                  onFocus={() => void loadModelSettingsDialog()}
+                  onPointerEnter={() => void loadModelSettingsDialog()}
                   onClick={() => {
-                    setIsApiKeyDialogOpen(true);
+                    setIsModelDialogOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="browse-muted-button inline-flex min-h-[48px] items-center justify-between rounded-md px-4 py-3 text-sm font-semibold"
+                  className={MENU_ITEM}
                 >
-                  API Key
+                  Model
                 </button>
                 <button
                   type="button"
@@ -237,27 +173,14 @@ export function HeaderClient({ starCount }: HeaderClientProps) {
                     setIsPrivateReposDialogOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="browse-muted-button inline-flex min-h-[48px] items-center justify-between rounded-md px-4 py-3 text-sm font-semibold"
+                  className={MENU_ITEM}
                 >
                   Private Repos
                 </button>
                 <ThemeToggle
                   onToggle={() => setIsMobileMenuOpen(false)}
-                  className="browse-muted-button inline-flex min-h-[48px] items-center justify-between rounded-md px-4 py-3 text-sm font-semibold"
+                  className={MENU_ITEM}
                 />
-                <Link
-                  href={GITHUB_REPO_URL}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="browse-muted-button inline-flex min-h-[48px] items-center justify-between gap-3 rounded-md px-4 py-3 text-sm font-semibold"
-                >
-                  <span className="flex items-center gap-2">
-                    <GitHubIcon className="h-5 w-5" />
-                    GitHub Repo
-                  </span>
-                  <Suspense fallback={null}>
-                    <MobileMenuStarCount starCount={starCount} />
-                  </Suspense>
-                </Link>
               </nav>
             </div>
           </div>
@@ -279,8 +202,11 @@ export function HeaderClient({ starCount }: HeaderClientProps) {
             }}
           />
         ) : null}
-        {isApiKeyDialogOpen ? (
-          <ApiKeyDialog isOpen onClose={() => setIsApiKeyDialogOpen(false)} />
+        {isModelDialogOpen ? (
+          <ModelSettingsDialog
+            isOpen
+            onClose={() => setIsModelDialogOpen(false)}
+          />
         ) : null}
       </div>
     </header>
